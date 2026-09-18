@@ -1,0 +1,22 @@
+name: docs
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install typst
+        uses: typst-community/setup-typst@v3
+        with:
+          typst-version: latest
+
+      - name: Build docs
+        uses: TinyTapeout/tt-gds-action/docs@tt08

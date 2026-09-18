@@ -1,0 +1,49 @@
+name: test
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install iverilog
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install -y iverilog
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python packages
+        shell: bash
+        run: python -m pip install -r test/requirements.txt
+
+      - name: Run tests
+        run: |
+          cd test
+          make clean
+          make
+
+      - name: Test Summary
+        if: always()
+        uses: test-summary/action@v2.3
+        with:
+          paths: "test/results.xml"
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-vcd
+          path: |
+            test/tb.vcd
+            test/results.xml
