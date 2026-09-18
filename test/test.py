@@ -2,7 +2,7 @@ import random
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge, ReadOnly, ReadWrite
+from cocotb.triggers import RisingEdge, ReadOnly, ReadWrite, Timer
 
 
 def encode_s4(value):
@@ -59,7 +59,9 @@ async def reset_dut(dut):
 async def load_matrices(dut, a, b):
     await ReadWrite()
 
-    assert int(dut.uio_oe.value) == 0, "uio pins must be inputs during loading"
+    assert int(dut.uio_oe.value) == 0, (
+        "uio pins must be inputs during loading"
+    )
 
     dut.uio_in.value = 1
     await RisingEdge(dut.clk)
@@ -95,6 +97,7 @@ async def load_matrices(dut, a, b):
 async def compute(dut):
     for _ in range(4):
         await RisingEdge(dut.clk)
+        await Timer(5, unit="ns")
 
 
 async def read_results(dut):
@@ -110,8 +113,7 @@ async def read_results(dut):
         results.append(get_9bit_signed(dut))
 
         await RisingEdge(dut.clk)
-
-    await ReadWrite()
+        await Timer(5, unit="ns")
 
     return [
         [results[0], results[1]],
@@ -136,7 +138,9 @@ async def run_matrix_test(dut, a, b):
 
 @cocotb.test()
 async def test_systolic_array_general(dut):
-    cocotb.start_soon(Clock(dut.clk, 100, unit="ns").start())
+    cocotb.start_soon(
+        Clock(dut.clk, 100, unit="ns").start()
+    )
 
     await reset_dut(dut)
 
@@ -186,8 +190,15 @@ async def test_systolic_array_general(dut):
     for name, a_pos, b_pos in product_positions:
         for a_value in values:
             for b_value in values:
-                a = [[0, 0], [0, 0]]
-                b = [[0, 0], [0, 0]]
+                a = [
+                    [0, 0],
+                    [0, 0],
+                ]
+
+                b = [
+                    [0, 0],
+                    [0, 0],
+                ]
 
                 a[a_pos[0]][a_pos[1]] = a_value
                 b[b_pos[0]][b_pos[1]] = b_value
@@ -203,13 +214,25 @@ async def test_systolic_array_general(dut):
 
     for _ in range(200):
         a = [
-            [random.randint(-8, 7), random.randint(-8, 7)],
-            [random.randint(-8, 7), random.randint(-8, 7)],
+            [
+                random.randint(-8, 7),
+                random.randint(-8, 7),
+            ],
+            [
+                random.randint(-8, 7),
+                random.randint(-8, 7),
+            ],
         ]
 
         b = [
-            [random.randint(-8, 7), random.randint(-8, 7)],
-            [random.randint(-8, 7), random.randint(-8, 7)],
+            [
+                random.randint(-8, 7),
+                random.randint(-8, 7),
+            ],
+            [
+                random.randint(-8, 7),
+                random.randint(-8, 7),
+            ],
         ]
 
         await run_matrix_test(dut, a, b)
