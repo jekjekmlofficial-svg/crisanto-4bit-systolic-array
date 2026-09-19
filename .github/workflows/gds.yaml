@@ -6,115 +6,42 @@ on:
 
 jobs:
   gds:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - name: checkout repo
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Build GDS
-        uses: TinyTapeout/tt-gds-action@tt08
+        uses: TinyTapeout/tt-gds-action@ttihp26b
         with:
-          flow: openlane2
+          pdk: ihp-sg13g2
 
   precheck:
     needs: gds
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Run Tiny Tapeout Precheck
-        uses: TinyTapeout/tt-gds-action/precheck@tt08
+        uses: TinyTapeout/tt-gds-action/precheck@ttihp26b
 
   gl_test:
     needs: gds
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - name: checkout repo
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
-      - name: Download GDS artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: tt_submission
-
-      - name: Set PDK environment
-        shell: bash
-        run: |
-          cat << EOF >> "$GITHUB_ENV"
-          PDK_ROOT=/home/runner/pdk
-          PDK=sky130A
-          EOF
-
-      - name: Install Sky130 PDK
-        uses: TinyTapeout/volare-action@v2
-        with:
-          pdk_name: sky130
-          pdk_version: cd1748bb197f9b7af62a54507de6624e30363943
-          pdk_root: /home/runner/pdk
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Python packages
-        shell: bash
-        run: python -m pip install -r test/requirements.txt
-
-      - name: Install Icarus Verilog
-        shell: bash
-        run: sudo apt-get update && sudo apt-get install -y iverilog
-
-      - name: Run gate-level tests
-        shell: bash
-        run: |
-          cp tt_submission/*.v test/gate_level_netlist.v
-          cd test
-          rm -f tb.vcd results.xml
-          make clean
-          GATES=yes make
-          test -f results.xml
-          python - <<'PY'
-          import xml.etree.ElementTree as ET
-
-          root = ET.parse("results.xml").getroot()
-          suites = root.findall(".//testsuite")
-
-          failures = sum(int(s.attrib.get("failures", "0")) for s in suites)
-          errors = sum(int(s.attrib.get("errors", "0")) for s in suites)
-
-          if failures or errors:
-              raise SystemExit(
-                  f"Gate-level test failed: failures={failures}, errors={errors}"
-              )
-
-          print("Gate-level test passed: failures=0, errors=0")
-          PY
-
-      - name: Upload gate-level test artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gatelevel_test_vcd
-          path: |
-            test/tb.vcd
-            test/results.xml
-            test/gate_level_netlist.v
-
-      - name: Gate-level Test Summary
-        if: always()
-        uses: test-summary/action@v2.3
-        with:
-          paths: test/results.xml
+      - name: GL test
+        uses: TinyTapeout/tt-gds-action/gl_test@ttihp26b
 
   viewer:
     needs: gds
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       pages: write
       id-token: write
     steps:
-      - name: Build and deploy GDS viewer
-        uses: TinyTapeout/tt-gds-action/viewer@tt08
+      - uses: TinyTapeout/tt-gds-action/viewer@ttihp26b
