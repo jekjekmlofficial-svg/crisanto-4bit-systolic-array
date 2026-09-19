@@ -1,32 +1,53 @@
----
-title: 4-bit 2x2 Systolic Array Matrix Multiplier
-author: Crisanto Cabello Florencondia Jr.
-discord: ""
-description: A signed 4-bit 2x2 systolic array matrix multiplier using output-stationary dataflow
-language: Verilog
-clock_hz: 10000000
----
-
 ## How it works
 
-This project implements a 2x2 systolic array using four processing elements (PEs) with signed 4-bit operands. The input matrix elements are temporally skewed so that operands propagate horizontally and vertically through the array, allowing the required multiplications to meet at the correct processing elements on successive clock cycles.
+This project implements a signed 4-bit 2x2 output-stationary systolic array for matrix multiplication.
 
-Each PE contains a 9-bit signed accumulator that retains its partial result while the operands move through the array. This gives the design an output-stationary accumulation behavior.
+The accelerator contains four processing elements (PEs) arranged as:
 
-For matrices A and B, the array computes:
+```text
+PE00  PE01
+PE10  PE11
+```
 
-C00 = A00×B00 + A01×B10
+Each PE receives a signed 4-bit A operand from the left and a signed 4-bit B operand from the top. The A values propagate horizontally while the B values propagate vertically. Each PE multiplies its two inputs and accumulates the product locally.
 
-C01 = A00×B01 + A01×B11
+For matrices A and B, the accelerator computes:
 
-C10 = A10×B00 + A11×B10
+```text
+C00 = A00B00 + A01B10
+C01 = A00B01 + A01B11
+C10 = A10B00 + A11B10
+C11 = A10B01 + A11B11
+```
 
-C11 = A10×B01 + A11×B11
+The operands use signed two's-complement 4-bit values from -8 to +7. Each PE uses a signed 9-bit accumulator.
 
-All input operands are signed 4-bit values in the range -8 to +7.
+The controller loads the two 2x2 matrices through the 8-bit input bus. Each byte contains two 4-bit signed values.
+
+After loading, the controller performs four compute cycles using skewed A and B streams so that the required multiplication terms arrive at the correct PEs.
+
+The four 9-bit results are then transmitted in row-major order:
+
+C00, C01, C10, C11
+
+For each result, the lower eight bits are presented on uo_out[7:0] and the ninth bit is presented on uio_out[0].
 
 ## How to test
 
-The design uses a sequential FSM controller to load the two 2x2 matrices through the 8-bit `ui_in` bus. Each byte contains two signed 4-bit matrix elements. `uio_in[0]` is used as the start trigger.
+The design is verified using Cocotb and Icarus Verilog.
 
-After the matrices are loaded, the controller runs the systolic array for four compute cycles, including the final propagation cycle. The four 9-bit signed matrix results are then streamed sequentially through `uo_out[7:0]` and `uio_out[0]`.
+A transaction follows this sequence:
+
+1. Assert START on uio_in[0].
+2. Send four input bytes through ui_in[7:0].
+3. Allow four compute cycles.
+4. Read four 9-bit results in row-major order.
+5. Return to IDLE before starting another transaction.
+
+The regression includes signed corner cases, exhaustive single-term tests, and randomized 2x2 matrix multiplication tests.
+
+## External hardware
+
+No external hardware is required for core accelerator operation.
+
+The design uses the standard Tiny Tapeout digital interface. An external controller, FPGA, microcontroller, or testbench can provide the clock, reset, START command, matrix data, and read the resulting matrix through the Tiny Tapeout pins.
